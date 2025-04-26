@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fake News Detector</title>
+  <style>
+    body {
+      background: linear-gradient(to right, #667eea, #764ba2);
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      text-align: center;
+      padding: 50px;
+    }
+
+    .container {
+      background-color: rgba(255, 255, 255, 0.1);
+      padding: 30px;
+      border-radius: 15px;
+      max-width: 800px;
+      margin: auto;
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      resize: none;
+      margin-bottom: 20px;
+    }
+
+    button {
+      background-color: #fff;
+      color: #764ba2;
+      border: none;
+      padding: 12px 25px;
+      font-size: 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      margin: 10px 5px;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: #eee;
+    }
+
+    #result {
+      font-size: 24px;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+
+    .score-bar {
+      margin-top: 20px;
+      width: 100%;
+      height: 20px;
+      background-color: #ddd;
+      border-radius: 10px;
+      overflow: hidden;
+      transition: background-color 0.3s;
+    }
+
+    .score-fill {
+      height: 100%;
+      transition: width 0.5s;
+    }
+
+    .graph {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 30px;
+    }
+
+    .bar-container {
+      width: 40%;
+      text-align: center;
+    }
+
+    .bar {
+      height: 150px;
+      width: 40px;
+      background-color: #eee;
+      position: relative;
+      margin: 0 auto;
+      border-radius: 10px;
+    }
+
+    .bar-fill {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      background-color: #00e676;
+      transition: height 0.5s;
+      border-radius: 10px;
+    }
+
+    .fake-bar-fill {
+      background-color: #ff4d4d;
+    }
+
+    .highlight {
+      background-color: yellow;
+      color: #000;
+      font-weight: bold;
+    }
+
+    #highlightedText {
+      background-color: rgba(255,255,255,0.1);
+      padding: 10px;
+      border-radius: 10px;
+      margin-top: 20px;
+      white-space: pre-wrap;
+      font-size: 16px;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📰 Fake News Detector</h1>
+    <textarea id="newsInput" placeholder="Paste your news article or headline here..."></textarea>
+    <br>
+    <button onclick="checkNews()">Check News</button>
+    <button id="tryAgain" onclick="tryAgain()" style="display:none;">🔁 Try Again</button>
+    <button onclick="copyResult()">📋 Copy Result</button>
+
+    <div id="result"></div>
+
+    <div class="score-bar">
+      <div id="scoreFill" class="score-fill"></div>
+    </div>
+
+    <div class="graph">
+      <div class="bar-container">
+        <p>Real Score</p>
+        <div class="bar"><div id="realBar" class="bar-fill"></div></div>
+      </div>
+      <div class="bar-container">
+        <p>Fake Score</p>
+        <div class="bar"><div id="fakeBar" class="bar-fill fake-bar-fill"></div></div>
+      </div>
+    </div>
+
+    <div id="highlightedText"></div>
+  </div>
+
+  <script>
+    const fakeKeywords = [
+      "clickbait", "miracle", "shocking", "secret", "won't believe",
+      "you won't believe", "viral", "exposed", "truth revealed", "unbelievable",
+      "breaking", "alert", "surprising", "sensational", "fake", "hoax"
+    ];
+
+    let currentResult = "";
+
+    function speakAloud(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1;
+      speechSynthesis.speak(utterance);
+    }
+
+    function checkNews() {
+      const news = document.getElementById("newsInput").value.toLowerCase().trim();
+      const result = document.getElementById("result");
+      const tryAgain = document.getElementById("tryAgain");
+      const scoreFill = document.getElementById("scoreFill");
+      const fakeBar = document.getElementById("fakeBar");
+      const realBar = document.getElementById("realBar");
+      const highlightedText = document.getElementById("highlightedText");
+      const scoreBar = document.querySelector(".score-bar");
+
+      let fakeScore = 0;
+      let highlighted = news;
+
+      fakeKeywords.forEach(keyword => {
+        if (news.includes(keyword)) {
+          fakeScore += 2;
+          const regex = new RegExp(`(${keyword})`, 'gi');
+          highlighted = highlighted.replace(regex, '<span class="highlight">$1</span>');
+        }
+      });
+
+      if (news.split(" ").length < 5) fakeScore += 1;
+      if (news.length < 50) fakeScore += 1;
+
+      if (news === "") {
+        result.innerHTML = "⚠️ Please enter some news content!";
+        result.style.color = "#ffc107";
+        return;
+      }
+
+      let totalScore = fakeScore + 5;
+      let fakePercent = (fakeScore / totalScore) * 100;
+      let realPercent = 0;
+
+      if (fakeScore >= 3) {
+        result.innerHTML = "❌ FAKE News Detected!";
+        result.style.color = "#ff4d4d";
+        currentResult = "Fake News Detected";
+
+        scoreBar.style.backgroundColor = "#ff4d4d";
+        scoreFill.style.backgroundColor = "#fff"; // placeholder, unused here
+
+        realBar.style.height = `0%`;
+        fakeBar.style.height = `${fakePercent}%`;
+      } else {
+        result.innerHTML = "✅ REAL News Detected!";
+        result.style.color = "#00e676";
+        currentResult = "Real News Detected";
+
+        scoreBar.style.backgroundColor = "#ddd";
+        scoreFill.style.backgroundColor = "#00e676";
+
+        realPercent = 100 - fakePercent;
+        realBar.style.height = `${realPercent}%`;
+        fakeBar.style.height = `${fakePercent}%`;
+      }
+
+      scoreFill.style.width = `${fakePercent}%`;
+      tryAgain.style.display = "inline-block";
+
+      highlightedText.innerHTML = `<strong>Highlighted Keywords:</strong><br><br>${highlighted}`;
+
+      speakAloud(currentResult);
+    }
+
+    function tryAgain() {
+      document.getElementById("newsInput").value = "";
+      document.getElementById("result").innerHTML = "";
+      document.getElementById("scoreFill").style.width = "0";
+      document.getElementById("fakeBar").style.height = "0";
+      document.getElementById("realBar").style.height = "0";
+      document.getElementById("highlightedText").innerHTML = "";
+      document.getElementById("tryAgain").style.display = "none";
+      document.querySelector(".score-bar").style.backgroundColor = "#ddd";
+    }
+
+    function copyResult() {
+      navigator.clipboard.writeText(currentResult).then(() => {
+        alert("Result copied to clipboard!");
+      });
+    }
+  </script>
+</body>
+</html>
